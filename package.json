@@ -2,7 +2,6 @@
   "name": "vite-svg-sprite-wrapper",
   "type": "module",
   "version": "1.0.3",
-  "packageManager": "pnpm@7.5.0",
   "description": "Creating one sprite file on the fly",
   "author": "vshepel <web.shepel@gmail.com>",
   "license": "MIT",
@@ -33,9 +32,9 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --dts --format cjs,esm --clean",
-    "dev": "pnpm run build --watch",
+    "dev": "npm run build --watch",
     "lint": "eslint .",
-    "prepublishOnly": "pnpm run build",
+    "prepublishOnly": "npm run build",
     "release": "bumpp && npm publish"
   },
   "peerDependencies": {
