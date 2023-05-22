@@ -125,8 +125,9 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
       configResolved(_config) {
         config = _config
       },
-      async writeBundle() {
-        generateSvgSprite(icons, outputDir, options)
+      async writeBundle(bundle) {
+        config.logger.info(`${colors.green(`the bundle: ${bundle}`)}`)
+        generateSvgSprite(icons, outputDir, options) 
           .then((res) => {
             config.logger.info(
               `${colors.green('sprite generated')} ${colors.dim(res)}`,
