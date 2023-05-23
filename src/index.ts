@@ -1,5 +1,5 @@
 import { resolve } from 'path'
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, readdirSync, unlinkSync, writeFileSync } from 'fs'
 import { createHash } from 'crypto'
 import { type PluginOption, type ViteDevServer, normalizePath, ResolvedConfig } from 'vite'
 import picomatch from 'picomatch'
@@ -101,7 +101,12 @@ async function generateSvgSprite(icons: string, outputDir: string, options: Opti
   const { result } = await spriter.compileAsync()
 
   const output = result.symbol.sprite.path.replace(`${root}/`, '')
-  const formattedOutput = hash ? `${output}?${useHash(result.symbol.sprite.contents.toString('utf8'))}` : output
+  const formattedOutput = hash ? `${output}?id=${useHash(result.symbol.sprite.contents.toString('utf8'))}` : output
+  const fileName = output.replace(outputDir, '').replace(/\?([0-9a-z]){7}/gm, '')
+
+  readdirSync(outputDir).forEach((file) => {
+    file.includes(fileName) && unlinkSync(outputDir + fileName)
+  })
 
   writeFileSync(
     formattedOutput,
