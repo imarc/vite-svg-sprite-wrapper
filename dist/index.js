@@ -66,12 +66,12 @@ async function generateSvgSprite(icons, outputDir, options, hash = false) {
     }
   }
   const { result } = await spriter.compileAsync();
-  writeFileSync(
-    result.symbol.sprite.path,
-    result.symbol.sprite.contents.toString("utf8")
-  );
   const output = result.symbol.sprite.path.replace(`${root}/`, "");
   const formattedOutput = hash ? `${output}?${useHash(result.symbol.sprite.contents.toString("utf8"))}` : output;
+  writeFileSync(
+    formattedOutput,
+    result.symbol.sprite.contents.toString("utf8")
+  );
   return formattedOutput;
 }
 function ViteSvgSpriteWrapper(options = {}) {

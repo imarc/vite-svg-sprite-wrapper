@@ -100,13 +100,14 @@ async function generateSvgSprite(icons: string, outputDir: string, options: Opti
 
   const { result } = await spriter.compileAsync()
 
+  const output = result.symbol.sprite.path.replace(`${root}/`, '')
+  const formattedOutput = hash ? `${output}?${useHash(result.symbol.sprite.contents.toString('utf8'))}` : output
+
   writeFileSync(
-    result.symbol.sprite.path,
+    formattedOutput,
     result.symbol.sprite.contents.toString('utf8'),
   )
 
-  const output = result.symbol.sprite.path.replace(`${root}/`, '')
-  const formattedOutput = hash ? `${output}?${useHash(result.symbol.sprite.contents.toString('utf8'))}` : output
   return formattedOutput
 }
 
