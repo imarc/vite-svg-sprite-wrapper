@@ -1,6 +1,7 @@
 // src/index.ts
 import { resolve } from "path";
 import { readFileSync, writeFileSync } from "fs";
+import { createHash } from "crypto";
 import { normalizePath } from "vite";
 import picomatch from "picomatch";
 import colors from "picocolors";
@@ -8,6 +9,7 @@ import SVGSpriter from "svg-sprite";
 import FastGlob from "fast-glob";
 var root = process.cwd();
 var isSvg = /\.svg$/;
+var useHash = (shape) => createHash("md5").update(shape).digest("hex").substring(0, 7);
 function normalizePaths(root2, path) {
   return (Array.isArray(path) ? path : [path]).map((path2) => resolve(root2, path2)).map(normalizePath);
 }
@@ -69,8 +71,8 @@ async function generateSvgSprite(icons, outputDir, options, hash = false) {
     result.symbol.sprite.contents.toString("utf8")
   );
   const output = result.symbol.sprite.path.replace(`${root}/`, "");
-  console.log({ output });
-  return output;
+  const formattedOutput = hash ? `${output}?${useHash(result.symbol.sprite.contents.toString("utf8"))}` : output;
+  return formattedOutput;
 }
 function ViteSvgSpriteWrapper(options = {}) {
   const {
@@ -93,8 +95,7 @@ function ViteSvgSpriteWrapper(options = {}) {
       configResolved(_config) {
         config = _config;
       },
-      async writeBundle(bundle) {
-        config.logger.info(`${colors.green(`the bundle: ${bundle}`)}`);
+      async writeBundle() {
         generateSvgSprite(icons, outputDir, options, true).then((res) => {
           config.logger.info(
             `${colors.green("sprite generated")} ${colors.dim(res)}`,

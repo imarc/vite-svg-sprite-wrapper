@@ -35,6 +35,7 @@ __export(src_exports, {
 module.exports = __toCommonJS(src_exports);
 var import_path = require("path");
 var import_fs = require("fs");
+var import_crypto = require("crypto");
 var import_vite = require("vite");
 var import_picomatch = __toESM(require("picomatch"), 1);
 var import_picocolors = __toESM(require("picocolors"), 1);
@@ -42,6 +43,7 @@ var import_svg_sprite = __toESM(require("svg-sprite"), 1);
 var import_fast_glob = __toESM(require("fast-glob"), 1);
 var root = process.cwd();
 var isSvg = /\.svg$/;
+var useHash = (shape) => (0, import_crypto.createHash)("md5").update(shape).digest("hex").substring(0, 7);
 function normalizePaths(root2, path) {
   return (Array.isArray(path) ? path : [path]).map((path2) => (0, import_path.resolve)(root2, path2)).map(import_vite.normalizePath);
 }
@@ -103,8 +105,8 @@ async function generateSvgSprite(icons, outputDir, options, hash = false) {
     result.symbol.sprite.contents.toString("utf8")
   );
   const output = result.symbol.sprite.path.replace(`${root}/`, "");
-  console.log({ output });
-  return output;
+  const formattedOutput = hash ? `${output}?${useHash(result.symbol.sprite.contents.toString("utf8"))}` : output;
+  return formattedOutput;
 }
 function ViteSvgSpriteWrapper(options = {}) {
   const {
@@ -127,8 +129,7 @@ function ViteSvgSpriteWrapper(options = {}) {
       configResolved(_config) {
         config = _config;
       },
-      async writeBundle(bundle) {
-        config.logger.info(`${import_picocolors.default.green(`the bundle: ${bundle}`)}`);
+      async writeBundle() {
         generateSvgSprite(icons, outputDir, options, true).then((res) => {
           config.logger.info(
             `${import_picocolors.default.green("sprite generated")} ${import_picocolors.default.dim(res)}`,
