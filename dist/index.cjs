@@ -85,7 +85,7 @@ var generateConfig = (outputDir, options) => ({
   },
   ...options.sprite
 });
-async function generateSvgSprite(icons, outputDir, options, hash = false) {
+async function generateSvgSprite(icons, outputDir, options, hash) {
   const spriter = new import_svg_sprite.default(generateConfig(outputDir, options));
   const rootDir = icons.replace(/(\/(\*+))+\.(.+)/g, "");
   const entries = await (0, import_fast_glob.default)([icons]);
@@ -103,7 +103,7 @@ async function generateSvgSprite(icons, outputDir, options, hash = false) {
   const output = result.symbol.sprite.path.replace(`${root}/`, "");
   const formattedOutput = hash ? `${output}?id=${useHash(result.symbol.sprite.contents.toString("utf8"))}` : output;
   const fileName = output.replace(outputDir, "").replace(/\?([0-9a-z]){7}/gm, "");
-  (0, import_fs.readdirSync)(outputDir).forEach((file) => {
+  hash && (0, import_fs.readdirSync)(outputDir).forEach((file) => {
     file.includes(fileName) && (0, import_fs.unlinkSync)(outputDir + fileName);
   });
   (0, import_fs.writeFileSync)(
@@ -115,7 +115,8 @@ async function generateSvgSprite(icons, outputDir, options, hash = false) {
 function ViteSvgSpriteWrapper(options = {}) {
   const {
     icons = "src/assets/images/svg/*.svg",
-    outputDir = "src/public/images"
+    outputDir = "src/public/images",
+    hash = false
   } = options;
   let timer;
   let config;
@@ -134,7 +135,7 @@ function ViteSvgSpriteWrapper(options = {}) {
         config = _config;
       },
       async writeBundle() {
-        generateSvgSprite(icons, outputDir, options, true).then((res) => {
+        generateSvgSprite(icons, outputDir, options, hash).then((res) => {
           config.logger.info(
             `${import_picocolors.default.green("sprite generated")} ${import_picocolors.default.dim(res)}`,
             {
@@ -157,7 +158,7 @@ function ViteSvgSpriteWrapper(options = {}) {
         config = _config;
       },
       async buildStart() {
-        generateSvgSprite(icons, outputDir, options).then((res) => {
+        generateSvgSprite(icons, outputDir, options, false).then((res) => {
           config.logger.info(
             `${import_picocolors.default.green("sprite generated")} ${import_picocolors.default.dim(res)}`,
             {
@@ -179,7 +180,7 @@ function ViteSvgSpriteWrapper(options = {}) {
         const checkReload = (path) => {
           if (shouldReload(path)) {
             schedule(() => {
-              generateSvgSprite(icons, outputDir, options).then((res) => {
+              generateSvgSprite(icons, outputDir, options, false).then((res) => {
                 ws.send({ type: "full-reload", path: "*" });
                 logger.info(
                   `${import_picocolors.default.green("sprite changed")} ${import_picocolors.default.dim(res)}`,

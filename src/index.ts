@@ -25,6 +25,14 @@ export interface Options {
    * sprite-svg {@link https://github.com/svg-sprite/svg-sprite/blob/main/docs/configuration.md#sprite-svg-options|options}
    */
   sprite?: SVGSpriter.Config
+
+  /**
+   * Add Query Hash
+   *
+   * @default false
+   */
+  hash?: boolean
+
 }
 
 const root = process.cwd()
@@ -80,7 +88,7 @@ const generateConfig = (outputDir: string, options: Options) => ({
   ...options.sprite,
 })
 
-async function generateSvgSprite(icons: string, outputDir: string, options: Options, hash = false): Promise<string> {
+async function generateSvgSprite(icons: string, outputDir: string, options: Options, hash: boolean): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   const spriter = new SVGSpriter(generateConfig(outputDir, options))
@@ -104,7 +112,7 @@ async function generateSvgSprite(icons: string, outputDir: string, options: Opti
   const formattedOutput = hash ? `${output}?id=${useHash(result.symbol.sprite.contents.toString('utf8'))}` : output
   const fileName = output.replace(outputDir, '').replace(/\?([0-9a-z]){7}/gm, '')
 
-  readdirSync(outputDir).forEach((file) => {
+  hash && readdirSync(outputDir).forEach((file) => {
     file.includes(fileName) && unlinkSync(outputDir + fileName)
   })
 
@@ -120,6 +128,7 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
   const {
     icons = 'src/assets/images/svg/*.svg',
     outputDir = 'src/public/images',
+    hash = false,
   } = options
   let timer: number | undefined
   let config: ResolvedConfig
@@ -140,7 +149,7 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
         config = _config
       },
       async writeBundle() {
-        generateSvgSprite(icons, outputDir, options, true)
+        generateSvgSprite(icons, outputDir, options, hash)
           .then((res) => {
             config.logger.info(
               `${colors.green('sprite generated')} ${colors.dim(res)}`,
@@ -165,7 +174,7 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
         config = _config
       },
       async buildStart() {
-        generateSvgSprite(icons, outputDir, options)
+        generateSvgSprite(icons, outputDir, options, false)
           .then((res) => {
             config.logger.info(
               `${colors.green('sprite generated')} ${colors.dim(res)}`,
@@ -189,7 +198,7 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
         const checkReload = (path: string) => {
           if (shouldReload(path)) {
             schedule(() => {
-              generateSvgSprite(icons, outputDir, options)
+              generateSvgSprite(icons, outputDir, options, false)
                 .then((res) => {
                   ws.send({ type: 'full-reload', path: '*' })
                   logger.info(
