@@ -83,7 +83,7 @@ var generateConfig = (outputDir, options) => ({
   },
   ...options.sprite
 });
-async function generateSvgSprite(icons, outputDir, options) {
+async function generateSvgSprite(icons, outputDir, options, hash = false) {
   const spriter = new import_svg_sprite.default(generateConfig(outputDir, options));
   const rootDir = icons.replace(/(\/(\*+))+\.(.+)/g, "");
   const entries = await (0, import_fast_glob.default)([icons]);
@@ -102,7 +102,9 @@ async function generateSvgSprite(icons, outputDir, options) {
     result.symbol.sprite.path,
     result.symbol.sprite.contents.toString("utf8")
   );
-  return result.symbol.sprite.path.replace(`${root}/`, "");
+  const output = result.symbol.sprite.path.replace(`${root}/`, "");
+  console.log({ output });
+  return output;
 }
 function ViteSvgSpriteWrapper(options = {}) {
   const {
@@ -125,8 +127,9 @@ function ViteSvgSpriteWrapper(options = {}) {
       configResolved(_config) {
         config = _config;
       },
-      async writeBundle() {
-        generateSvgSprite(icons, outputDir, options).then((res) => {
+      async writeBundle(bundle) {
+        config.logger.info(`${import_picocolors.default.green(`the bundle: ${bundle}`)}`);
+        generateSvgSprite(icons, outputDir, options, true).then((res) => {
           config.logger.info(
             `${import_picocolors.default.green("sprite generated")} ${import_picocolors.default.dim(res)}`,
             {

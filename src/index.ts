@@ -74,7 +74,7 @@ const generateConfig = (outputDir: string, options: Options) => ({
   ...options.sprite,
 })
 
-async function generateSvgSprite(icons: string, outputDir: string, options: Options): Promise<string> {
+async function generateSvgSprite(icons: string, outputDir: string, options: Options, hash = false): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   const spriter = new SVGSpriter(generateConfig(outputDir, options))
@@ -99,7 +99,9 @@ async function generateSvgSprite(icons: string, outputDir: string, options: Opti
     result.symbol.sprite.contents.toString('utf8'),
   )
 
-  return result.symbol.sprite.path.replace(`${root}/`, '')
+  const output = result.symbol.sprite.path.replace(`${root}/`, '')
+  console.log({ output })
+  return output
 }
 
 function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
@@ -127,7 +129,7 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
       },
       async writeBundle(bundle) {
         config.logger.info(`${colors.green(`the bundle: ${bundle}`)}`)
-        generateSvgSprite(icons, outputDir, options) 
+        generateSvgSprite(icons, outputDir, options, true)
           .then((res) => {
             config.logger.info(
               `${colors.green('sprite generated')} ${colors.dim(res)}`,
