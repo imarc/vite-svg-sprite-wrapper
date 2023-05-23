@@ -1,5 +1,6 @@
 import { resolve } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
+import { createHash } from 'crypto'
 import { type PluginOption, type ViteDevServer, normalizePath, ResolvedConfig } from 'vite'
 import picomatch from 'picomatch'
 import colors from 'picocolors'
@@ -28,6 +29,11 @@ export interface Options {
 
 const root = process.cwd()
 const isSvg = /\.svg$/
+
+const useHash = (shape: string) => createHash('md5')
+  .update(shape)
+  .digest('hex')
+  .substring(0, 7)
 
 function normalizePaths(root: string, path: string | undefined): string[] {
   return (Array.isArray(path) ? path : [path])
@@ -100,8 +106,8 @@ async function generateSvgSprite(icons: string, outputDir: string, options: Opti
   )
 
   const output = result.symbol.sprite.path.replace(`${root}/`, '')
-  console.log({ output })
-  return output
+  const formattedOutput = hash ? `${output}?${useHash(result.symbol.sprite.contents.toString('utf8'))}` : output
+  return formattedOutput
 }
 
 function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
@@ -127,8 +133,7 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
       configResolved(_config) {
         config = _config
       },
-      async writeBundle(bundle) {
-        config.logger.info(`${colors.green(`the bundle: ${bundle}`)}`)
+      async writeBundle() {
         generateSvgSprite(icons, outputDir, options, true)
           .then((res) => {
             config.logger.info(
