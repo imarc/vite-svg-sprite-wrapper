@@ -1,6 +1,6 @@
 // src/index.ts
 import { resolve } from "path";
-import { readFileSync, readdirSync, unlinkSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { createHash } from "crypto";
 import { normalizePath } from "vite";
 import picomatch from "picomatch";
@@ -69,9 +69,6 @@ async function generateSvgSprite(icons, outputDir, options, hash) {
   const output = result.symbol.sprite.path.replace(`${root}/`, "");
   const formattedOutput = hash ? `${output}?id=${useHash(result.symbol.sprite.contents.toString("utf8"))}` : output;
   const fileName = output.replace(outputDir, "").replace(/\?([0-9a-z]){7}/gm, "");
-  hash && readdirSync(outputDir).forEach((file) => {
-    file.includes(fileName) && unlinkSync(outputDir + fileName);
-  });
   writeFileSync(
     formattedOutput,
     result.symbol.sprite.contents.toString("utf8")

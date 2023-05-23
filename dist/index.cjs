@@ -103,9 +103,6 @@ async function generateSvgSprite(icons, outputDir, options, hash) {
   const output = result.symbol.sprite.path.replace(`${root}/`, "");
   const formattedOutput = hash ? `${output}?id=${useHash(result.symbol.sprite.contents.toString("utf8"))}` : output;
   const fileName = output.replace(outputDir, "").replace(/\?([0-9a-z]){7}/gm, "");
-  hash && (0, import_fs.readdirSync)(outputDir).forEach((file) => {
-    file.includes(fileName) && (0, import_fs.unlinkSync)(outputDir + fileName);
-  });
   (0, import_fs.writeFileSync)(
     formattedOutput,
     result.symbol.sprite.contents.toString("utf8")
