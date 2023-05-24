@@ -3,14 +3,13 @@
   "type": "module",
   "version": "1.0.5",
   "description": "Creating one sprite file on the fly",
-  "author": "vshepel <web.shepel@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/vshepel/vite-svg-sprite-wrapper",
+  "homepage": "https://github.com/imarc/vite-svg-sprite-wrapper",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vshepel/vite-svg-sprite-wrapper"
+    "url": "https://github.com/imarc/vite-svg-sprite-wrapper"
   },
-  "bugs": "https://github.com/vshepel/vite-svg-sprite-wrapper/issues",
+  "bugs": "https://github.com/imarc/vite-svg-sprite-wrapper/issues",
   "keywords": [
     "vite",
     "vite-plugin",

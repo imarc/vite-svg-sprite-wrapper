@@ -1,15 +1,11 @@
 # vite-svg-sprite-wrapper
 
-<p>
-  <a href="https://npmjs.com/package/vite"><img src="https://img.shields.io/npm/v/vite-svg-sprite-wrapper.svg" alt="npm package"></a>
-</p>
-
 > [svg-sprite](https://github.com/svg-sprite/svg-sprite/) wrapper for [Vite](https://github.com/vitejs/vite)
 
 ## Install
 
 ```
-npm i vite-svg-sprite-wrapper -D
+npm i imarc/npm vite-svg-sprite-wrapper -D
 ```
 
 ## Usage
@@ -40,6 +36,13 @@ export default defineConfig({
        * sprite-svg {@link https://github.com/svg-sprite/svg-sprite/blob/main/docs/configuration.md#sprite-svg-options|options}
        */
       sprite?: SVGSpriter.Config
+
+      /**
+       * Add Query Hash
+       *
+       * @default false
+       */
+      queryHash?: boolean
     }),
   ],
 })
@@ -55,4 +58,4 @@ So you can use the icons somehow ([Example](https://github.com/vshepel/vite-svg-
 </svg>
 ```
 
-MIT License © 2023 [Volodymyr Shepel](https://github.com/vshepel)
+MIT License © 2023 Forked from [Volodymyr Shepel](https://github.com/vshepel)
