@@ -1,6 +1,6 @@
 // src/index.ts
-import { resolve } from "path";
-import { readFileSync, writeFileSync } from "fs";
+import path, { resolve } from "path";
+import { mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "fs";
 import { createHash } from "crypto";
 import { normalizePath } from "vite";
 import picomatch from "picomatch";
@@ -10,8 +10,8 @@ import FastGlob from "fast-glob";
 var root = process.cwd();
 var isSvg = /\.svg$/;
 var useHash = (shape) => createHash("md5").update(shape).digest("hex").substring(0, 7);
-function normalizePaths(root2, path) {
-  return (Array.isArray(path) ? path : [path]).map((path2) => resolve(root2, path2)).map(normalizePath);
+function normalizePaths(root2, path2) {
+  return (Array.isArray(path2) ? path2 : [path2]).map((path3) => resolve(root2, path3)).map(normalizePath);
 }
 var generateConfig = (outputDir, options) => ({
   dest: normalizePath(resolve(root, outputDir)),
@@ -21,7 +21,11 @@ var generateConfig = (outputDir, options) => ({
     }
   },
   svg: {
-    xmlDeclaration: false
+    xmlDeclaration: false,
+    rootAttributes: {
+      style: "display: none;",
+      focusable: "false"
+    }
   },
   shape: {
     transform: [
@@ -29,18 +33,14 @@ var generateConfig = (outputDir, options) => ({
         svgo: {
           plugins: [
             { name: "preset-default" },
+            "inlineStyles",
+            "removeStyleElement",
+            "removeScriptElement",
+            "removeViewBox",
             {
               name: "removeAttrs",
               params: {
-                attrs: ["*:(data-*|style|fill):*"]
-              }
-            },
-            {
-              name: "addAttributesToSVGElement",
-              params: {
-                attributes: [
-                  { fill: "currentColor" }
-                ]
+                attrs: ["*:(data-*|style|class):*"]
               }
             },
             "removeXMLNS"
@@ -49,9 +49,16 @@ var generateConfig = (outputDir, options) => ({
       }
     ]
   },
+  variables: {
+    kebab() {
+      return function(text, render) {
+        return render(text).match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g).map((x) => x.toLowerCase()).join("-");
+      };
+    }
+  },
   ...options.sprite
 });
-async function generateSvgSprite(icons, outputDir, options, hash) {
+async function generateSvgSprite(icons, outputDir, options, queryHash) {
   const spriter = new SVGSpriter(generateConfig(outputDir, options));
   const rootDir = icons.replace(/(\/(\*+))+\.(.+)/g, "");
   const entries = await FastGlob([icons]);
@@ -67,19 +74,38 @@ async function generateSvgSprite(icons, outputDir, options, hash) {
   }
   const { result } = await spriter.compileAsync();
   const output = result.symbol.sprite.path.replace(`${root}/`, "");
-  const formattedOutput = hash ? `${output}?id=${useHash(result.symbol.sprite.contents.toString("utf8"))}` : output;
-  const fileName = output.replace(outputDir, "").replace(/\?([0-9a-z]){7}/gm, "");
-  writeFileSync(
+  const formattedOutput = `${output}?id=${useHash(result.symbol.sprite.contents.toString("utf8"))}`;
+  const fileName = output.replace(/(.*\/)/gm, "");
+  const dirPath = output.replace(fileName, "");
+  readdirSync(dirPath).forEach((file) => {
+    file.includes(fileName) && unlinkSync(dirPath + file);
+  });
+  Object.values(result.symbol).forEach((val) => {
+    const value = val;
+    mkdirSync(path.dirname(value.path), { recursive: true });
+  });
+  !queryHash && writeFileSync(
+    output,
+    result.symbol.sprite.contents.toString("utf8")
+  );
+  queryHash && writeFileSync(
     formattedOutput,
     result.symbol.sprite.contents.toString("utf8")
   );
-  return formattedOutput;
+  result.symbol.example && writeFileSync(
+    result.symbol.example.path,
+    result.symbol.example.contents.toString("utf8")
+  );
+  return {
+    output: queryHash ? formattedOutput : output,
+    example: result.symbol.example ? result.symbol.example.path.replace(`${root}/`, "") : null
+  };
 }
 function ViteSvgSpriteWrapper(options = {}) {
   const {
     icons = "src/assets/images/svg/*.svg",
     outputDir = "src/public/images",
-    hash = false
+    queryHash = false
   } = options;
   let timer;
   let config;
@@ -98,13 +124,17 @@ function ViteSvgSpriteWrapper(options = {}) {
         config = _config;
       },
       async writeBundle() {
-        generateSvgSprite(icons, outputDir, options, hash).then((res) => {
+        generateSvgSprite(icons, outputDir, options, queryHash).then((res) => {
           config.logger.info(
-            `${colors.green("sprite generated")} ${colors.dim(res)}`,
+            `${colors.green("sprite generated")} ${colors.dim(res.output)}`,
             {
               clear: true,
               timestamp: true
             }
+          );
+          res.example && config.logger.info(
+            `${colors.green("sprite example generated")} ${colors.dim(res.example)}`,
+            { clear: true, timestamp: true }
           );
         }).catch((err) => {
           config.logger.info(
@@ -123,7 +153,7 @@ function ViteSvgSpriteWrapper(options = {}) {
       async buildStart() {
         generateSvgSprite(icons, outputDir, options, false).then((res) => {
           config.logger.info(
-            `${colors.green("sprite generated")} ${colors.dim(res)}`,
+            `${colors.green("sprite generated")} ${colors.dim(res.output)}`,
             {
               clear: true,
               timestamp: true
@@ -140,13 +170,13 @@ function ViteSvgSpriteWrapper(options = {}) {
       configureServer({ watcher, ws, config: { logger } }) {
         const iconsPath = normalizePaths(root, icons);
         const shouldReload = picomatch(iconsPath);
-        const checkReload = (path) => {
-          if (shouldReload(path)) {
+        const checkReload = (path2) => {
+          if (shouldReload(path2)) {
             schedule(() => {
               generateSvgSprite(icons, outputDir, options, false).then((res) => {
                 ws.send({ type: "full-reload", path: "*" });
                 logger.info(
-                  `${colors.green("sprite changed")} ${colors.dim(res)}`,
+                  `${colors.green("sprite changed")} ${colors.dim(res.output)}`,
                   {
                     clear: true,
                     timestamp: true

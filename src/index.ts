@@ -1,7 +1,8 @@
-import { resolve } from 'path'
-import { readFileSync, readdirSync, unlinkSync, writeFileSync } from 'fs'
+/* eslint-disable @typescript-eslint/consistent-type-imports */
+import path, { resolve } from 'path'
+import { mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'fs'
 import { createHash } from 'crypto'
-import { type PluginOption, type ViteDevServer, normalizePath, ResolvedConfig } from 'vite'
+import { type PluginOption, ResolvedConfig, type ViteDevServer, normalizePath } from 'vite'
 import picomatch from 'picomatch'
 import colors from 'picocolors'
 import SVGSpriter from 'svg-sprite'
@@ -9,30 +10,35 @@ import FastGlob from 'fast-glob'
 
 export interface Options {
   /**
-   * Input directory
-   *
-   * @default 'src/assets/images/svg/*.svg'
-   */
+     * Input directory
+     *
+     * @default 'src/assets/images/svg/*.svg'
+     */
   icons?: string
   /**
-   * Output directory
-   *
-   * @default 'src/public/images'
-   */
+     * Output directory
+     *
+     * @default 'src/public/images'
+     */
   outputDir?: string
 
   /**
-   * sprite-svg {@link https://github.com/svg-sprite/svg-sprite/blob/main/docs/configuration.md#sprite-svg-options|options}
-   */
+     * sprite-svg {@link https://github.com/svg-sprite/svg-sprite/blob/main/docs/configuration.md#sprite-svg-options|options}
+     */
   sprite?: SVGSpriter.Config
 
   /**
-   * Add Query Hash
-   *
-   * @default false
-   */
-  hash?: boolean
+     * Add Query Hash
+     *
+     * @default false
+     */
+  queryHash?: boolean
 
+}
+
+export interface ResolveObject {
+  output: string
+  example: string | null
 }
 
 const root = process.cwd()
@@ -58,6 +64,10 @@ const generateConfig = (outputDir: string, options: Options) => ({
   },
   svg: {
     xmlDeclaration: false,
+    rootAttributes: {
+      style: 'display: none;',
+      focusable: 'false',
+    },
   },
   shape: {
     transform: [
@@ -65,18 +75,14 @@ const generateConfig = (outputDir: string, options: Options) => ({
         svgo: {
           plugins: [
             { name: 'preset-default' },
+            'inlineStyles',
+            'removeStyleElement',
+            'removeScriptElement',
+            'removeViewBox',
             {
               name: 'removeAttrs',
               params: {
-                attrs: ['*:(data-*|style|fill):*'],
-              },
-            },
-            {
-              name: 'addAttributesToSVGElement',
-              params: {
-                attributes: [
-                  { fill: 'currentColor' },
-                ],
+                attrs: ['*:(data-*|style|class):*'],
               },
             },
             'removeXMLNS',
@@ -85,10 +91,20 @@ const generateConfig = (outputDir: string, options: Options) => ({
       },
     ],
   },
+  variables: {
+    kebab() {
+      return function (text: string, render: Function) {
+        return render(text)
+          .match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g)
+          .map((x: string) => x.toLowerCase())
+          .join('-')
+      }
+    },
+  },
   ...options.sprite,
 })
 
-async function generateSvgSprite(icons: string, outputDir: string, options: Options, hash: boolean): Promise<string> {
+async function generateSvgSprite(icons: string, outputDir: string, options: Options, queryHash: boolean): Promise<ResolveObject> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   const spriter = new SVGSpriter(generateConfig(outputDir, options))
@@ -109,26 +125,50 @@ async function generateSvgSprite(icons: string, outputDir: string, options: Opti
   const { result } = await spriter.compileAsync()
 
   const output = result.symbol.sprite.path.replace(`${root}/`, '')
-  const formattedOutput = hash ? `${output}?id=${useHash(result.symbol.sprite.contents.toString('utf8'))}` : output
-  const fileName = output.replace(outputDir, '').replace(/\?([0-9a-z]){7}/gm, '')
+  const formattedOutput = `${output}?id=${useHash(result.symbol.sprite.contents.toString('utf8'))}`
+  const fileName = output.replace(/(.*\/)/gm, '')
+  const dirPath = output.replace(fileName, '')
 
-  // hash && readdirSync(outputDir).forEach((file) => {
-  //   file.includes(fileName) && unlinkSync(outputDir + fileName)
-  // })
+  // remove all version of file before creating new versions
+  readdirSync(dirPath).forEach((file) => {
+    file.includes(fileName) && unlinkSync(dirPath + file)
+  })
 
-  writeFileSync(
+  // create directory if not exist
+  Object.values(result.symbol).forEach((val) => {
+    const value = val as { path: string }
+    mkdirSync(path.dirname(value.path), { recursive: true })
+  })
+
+  // write output
+  !queryHash && writeFileSync(
+    output,
+    result.symbol.sprite.contents.toString('utf8'),
+  )
+
+  // if queryHash, write queryHashed output
+  queryHash && writeFileSync(
     formattedOutput,
     result.symbol.sprite.contents.toString('utf8'),
   )
 
-  return formattedOutput
+  // if example, write example output
+  result.symbol.example && writeFileSync(
+    result.symbol.example.path,
+    result.symbol.example.contents.toString('utf8'),
+  )
+
+  return {
+    output: queryHash ? formattedOutput : output,
+    example: result.symbol.example ? result.symbol.example.path.replace(`${root}/`, '') : null,
+  }
 }
 
 function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
   const {
     icons = 'src/assets/images/svg/*.svg',
     outputDir = 'src/public/images',
-    hash = false,
+    queryHash = false,
   } = options
   let timer: number | undefined
   let config: ResolvedConfig
@@ -149,20 +189,24 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
         config = _config
       },
       async writeBundle() {
-        generateSvgSprite(icons, outputDir, options, hash)
+        generateSvgSprite(icons, outputDir, options, queryHash)
           .then((res) => {
             config.logger.info(
-              `${colors.green('sprite generated')} ${colors.dim(res)}`,
-              {
-                clear: true,
-                timestamp: true,
-              },
+                        `${colors.green('sprite generated')} ${colors.dim(res.output)}`,
+                        {
+                          clear: true,
+                          timestamp: true,
+                        },
+            )
+            res.example && config.logger.info(
+                        `${colors.green('sprite example generated')} ${colors.dim(res.example)}`,
+                        { clear: true, timestamp: true },
             )
           })
           .catch((err) => {
             config.logger.info(
-              `${colors.red('sprite error')} ${colors.dim(err)}`,
-              { clear: true, timestamp: true },
+                        `${colors.red('sprite error')} ${colors.dim(err)}`,
+                        { clear: true, timestamp: true },
             )
           })
       },
@@ -177,17 +221,17 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
         generateSvgSprite(icons, outputDir, options, false)
           .then((res) => {
             config.logger.info(
-              `${colors.green('sprite generated')} ${colors.dim(res)}`,
-              {
-                clear: true,
-                timestamp: true,
-              },
+                        `${colors.green('sprite generated')} ${colors.dim(res.output)}`,
+                        {
+                          clear: true,
+                          timestamp: true,
+                        },
             )
           })
           .catch((err) => {
             config.logger.info(
-              `${colors.red('sprite error')} ${colors.dim(err)}`,
-              { clear: true, timestamp: true },
+                        `${colors.red('sprite error')} ${colors.dim(err)}`,
+                        { clear: true, timestamp: true },
             )
           })
       },
@@ -202,17 +246,17 @@ function ViteSvgSpriteWrapper(options: Options = {}): PluginOption {
                 .then((res) => {
                   ws.send({ type: 'full-reload', path: '*' })
                   logger.info(
-                    `${colors.green('sprite changed')} ${colors.dim(res)}`,
-                    {
-                      clear: true,
-                      timestamp: true,
-                    },
+                                        `${colors.green('sprite changed')} ${colors.dim(res.output)}`,
+                                        {
+                                          clear: true,
+                                          timestamp: true,
+                                        },
                   )
                 })
                 .catch((err) => {
                   logger.info(
-                    `${colors.red('sprite error')} ${colors.dim(err)}`,
-                    { clear: true, timestamp: true },
+                                        `${colors.red('sprite error')} ${colors.dim(err)}`,
+                                        { clear: true, timestamp: true },
                   )
                 })
             })

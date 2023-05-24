@@ -33,7 +33,7 @@ __export(src_exports, {
   default: () => src_default
 });
 module.exports = __toCommonJS(src_exports);
-var import_path = require("path");
+var import_path = __toESM(require("path"), 1);
 var import_fs = require("fs");
 var import_crypto = require("crypto");
 var import_vite = require("vite");
@@ -44,8 +44,8 @@ var import_fast_glob = __toESM(require("fast-glob"), 1);
 var root = process.cwd();
 var isSvg = /\.svg$/;
 var useHash = (shape) => (0, import_crypto.createHash)("md5").update(shape).digest("hex").substring(0, 7);
-function normalizePaths(root2, path) {
-  return (Array.isArray(path) ? path : [path]).map((path2) => (0, import_path.resolve)(root2, path2)).map(import_vite.normalizePath);
+function normalizePaths(root2, path2) {
+  return (Array.isArray(path2) ? path2 : [path2]).map((path3) => (0, import_path.resolve)(root2, path3)).map(import_vite.normalizePath);
 }
 var generateConfig = (outputDir, options) => ({
   dest: (0, import_vite.normalizePath)((0, import_path.resolve)(root, outputDir)),
@@ -55,7 +55,11 @@ var generateConfig = (outputDir, options) => ({
     }
   },
   svg: {
-    xmlDeclaration: false
+    xmlDeclaration: false,
+    rootAttributes: {
+      style: "display: none;",
+      focusable: "false"
+    }
   },
   shape: {
     transform: [
@@ -63,18 +67,14 @@ var generateConfig = (outputDir, options) => ({
         svgo: {
           plugins: [
             { name: "preset-default" },
+            "inlineStyles",
+            "removeStyleElement",
+            "removeScriptElement",
+            "removeViewBox",
             {
               name: "removeAttrs",
               params: {
-                attrs: ["*:(data-*|style|fill):*"]
-              }
-            },
-            {
-              name: "addAttributesToSVGElement",
-              params: {
-                attributes: [
-                  { fill: "currentColor" }
-                ]
+                attrs: ["*:(data-*|style|class):*"]
               }
             },
             "removeXMLNS"
@@ -83,9 +83,16 @@ var generateConfig = (outputDir, options) => ({
       }
     ]
   },
+  variables: {
+    kebab() {
+      return function(text, render) {
+        return render(text).match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g).map((x) => x.toLowerCase()).join("-");
+      };
+    }
+  },
   ...options.sprite
 });
-async function generateSvgSprite(icons, outputDir, options, hash) {
+async function generateSvgSprite(icons, outputDir, options, queryHash) {
   const spriter = new import_svg_sprite.default(generateConfig(outputDir, options));
   const rootDir = icons.replace(/(\/(\*+))+\.(.+)/g, "");
   const entries = await (0, import_fast_glob.default)([icons]);
@@ -101,19 +108,38 @@ async function generateSvgSprite(icons, outputDir, options, hash) {
   }
   const { result } = await spriter.compileAsync();
   const output = result.symbol.sprite.path.replace(`${root}/`, "");
-  const formattedOutput = hash ? `${output}?id=${useHash(result.symbol.sprite.contents.toString("utf8"))}` : output;
-  const fileName = output.replace(outputDir, "").replace(/\?([0-9a-z]){7}/gm, "");
-  (0, import_fs.writeFileSync)(
+  const formattedOutput = `${output}?id=${useHash(result.symbol.sprite.contents.toString("utf8"))}`;
+  const fileName = output.replace(/(.*\/)/gm, "");
+  const dirPath = output.replace(fileName, "");
+  (0, import_fs.readdirSync)(dirPath).forEach((file) => {
+    file.includes(fileName) && (0, import_fs.unlinkSync)(dirPath + file);
+  });
+  Object.values(result.symbol).forEach((val) => {
+    const value = val;
+    (0, import_fs.mkdirSync)(import_path.default.dirname(value.path), { recursive: true });
+  });
+  !queryHash && (0, import_fs.writeFileSync)(
+    output,
+    result.symbol.sprite.contents.toString("utf8")
+  );
+  queryHash && (0, import_fs.writeFileSync)(
     formattedOutput,
     result.symbol.sprite.contents.toString("utf8")
   );
-  return formattedOutput;
+  result.symbol.example && (0, import_fs.writeFileSync)(
+    result.symbol.example.path,
+    result.symbol.example.contents.toString("utf8")
+  );
+  return {
+    output: queryHash ? formattedOutput : output,
+    example: result.symbol.example ? result.symbol.example.path.replace(`${root}/`, "") : null
+  };
 }
 function ViteSvgSpriteWrapper(options = {}) {
   const {
     icons = "src/assets/images/svg/*.svg",
     outputDir = "src/public/images",
-    hash = false
+    queryHash = false
   } = options;
   let timer;
   let config;
@@ -132,13 +158,17 @@ function ViteSvgSpriteWrapper(options = {}) {
         config = _config;
       },
       async writeBundle() {
-        generateSvgSprite(icons, outputDir, options, hash).then((res) => {
+        generateSvgSprite(icons, outputDir, options, queryHash).then((res) => {
           config.logger.info(
-            `${import_picocolors.default.green("sprite generated")} ${import_picocolors.default.dim(res)}`,
+            `${import_picocolors.default.green("sprite generated")} ${import_picocolors.default.dim(res.output)}`,
             {
               clear: true,
               timestamp: true
             }
+          );
+          res.example && config.logger.info(
+            `${import_picocolors.default.green("sprite example generated")} ${import_picocolors.default.dim(res.example)}`,
+            { clear: true, timestamp: true }
           );
         }).catch((err) => {
           config.logger.info(
@@ -157,7 +187,7 @@ function ViteSvgSpriteWrapper(options = {}) {
       async buildStart() {
         generateSvgSprite(icons, outputDir, options, false).then((res) => {
           config.logger.info(
-            `${import_picocolors.default.green("sprite generated")} ${import_picocolors.default.dim(res)}`,
+            `${import_picocolors.default.green("sprite generated")} ${import_picocolors.default.dim(res.output)}`,
             {
               clear: true,
               timestamp: true
@@ -174,13 +204,13 @@ function ViteSvgSpriteWrapper(options = {}) {
       configureServer({ watcher, ws, config: { logger } }) {
         const iconsPath = normalizePaths(root, icons);
         const shouldReload = (0, import_picomatch.default)(iconsPath);
-        const checkReload = (path) => {
-          if (shouldReload(path)) {
+        const checkReload = (path2) => {
+          if (shouldReload(path2)) {
             schedule(() => {
               generateSvgSprite(icons, outputDir, options, false).then((res) => {
                 ws.send({ type: "full-reload", path: "*" });
                 logger.info(
-                  `${import_picocolors.default.green("sprite changed")} ${import_picocolors.default.dim(res)}`,
+                  `${import_picocolors.default.green("sprite changed")} ${import_picocolors.default.dim(res.output)}`,
                   {
                     clear: true,
                     timestamp: true
