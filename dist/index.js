@@ -96,9 +96,19 @@ async function generateSvgSprite(icons, outputDir, options, queryHash) {
     result.symbol.example.path,
     result.symbol.example.contents.toString("utf8")
   );
+  result.symbol.scss && writeFileSync(
+    result.symbol.scss.path,
+    result.symbol.scss.contents.toString("utf8")
+  );
+  result.symbol.css && writeFileSync(
+    result.symbol.css.path,
+    result.symbol.css.contents.toString("utf8")
+  );
   return {
     output: queryHash ? formattedOutput : output,
-    example: result.symbol.example ? result.symbol.example.path.replace(`${root}/`, "") : null
+    example: result.symbol.example ? result.symbol.example.path.replace(`${root}/`, "") : null,
+    scss: result.symbol.scss ? result.symbol.scss.path.replace(`${root}/`, "") : null,
+    css: result.symbol.css ? result.symbol.css.path.replace(`${root}/`, "") : null
   };
 }
 function ViteSvgSpriteWrapper(options = {}) {
@@ -134,6 +144,14 @@ function ViteSvgSpriteWrapper(options = {}) {
           );
           res.example && config.logger.info(
             `${colors.green("sprite example generated")} ${colors.dim(res.example)}`,
+            { clear: true, timestamp: true }
+          );
+          res.scss && config.logger.info(
+            `${colors.green("sprite scss generated")} ${colors.dim(res.scss)}`,
+            { clear: true, timestamp: true }
+          );
+          res.css && config.logger.info(
+            `${colors.green("sprite css generated")} ${colors.dim(res.css)}`,
             { clear: true, timestamp: true }
           );
         }).catch((err) => {

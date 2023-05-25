@@ -28,6 +28,8 @@ interface Options {
 interface ResolveObject {
     output: string;
     example: string | null;
+    scss: string | null;
+    css: string | null;
 }
 declare function ViteSvgSpriteWrapper(options?: Options): PluginOption;
 

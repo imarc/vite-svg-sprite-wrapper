@@ -130,9 +130,19 @@ async function generateSvgSprite(icons, outputDir, options, queryHash) {
     result.symbol.example.path,
     result.symbol.example.contents.toString("utf8")
   );
+  result.symbol.scss && (0, import_fs.writeFileSync)(
+    result.symbol.scss.path,
+    result.symbol.scss.contents.toString("utf8")
+  );
+  result.symbol.css && (0, import_fs.writeFileSync)(
+    result.symbol.css.path,
+    result.symbol.css.contents.toString("utf8")
+  );
   return {
     output: queryHash ? formattedOutput : output,
-    example: result.symbol.example ? result.symbol.example.path.replace(`${root}/`, "") : null
+    example: result.symbol.example ? result.symbol.example.path.replace(`${root}/`, "") : null,
+    scss: result.symbol.scss ? result.symbol.scss.path.replace(`${root}/`, "") : null,
+    css: result.symbol.css ? result.symbol.css.path.replace(`${root}/`, "") : null
   };
 }
 function ViteSvgSpriteWrapper(options = {}) {
@@ -168,6 +178,14 @@ function ViteSvgSpriteWrapper(options = {}) {
           );
           res.example && config.logger.info(
             `${import_picocolors.default.green("sprite example generated")} ${import_picocolors.default.dim(res.example)}`,
+            { clear: true, timestamp: true }
+          );
+          res.scss && config.logger.info(
+            `${import_picocolors.default.green("sprite scss generated")} ${import_picocolors.default.dim(res.scss)}`,
+            { clear: true, timestamp: true }
+          );
+          res.css && config.logger.info(
+            `${import_picocolors.default.green("sprite css generated")} ${import_picocolors.default.dim(res.css)}`,
             { clear: true, timestamp: true }
           );
         }).catch((err) => {
