@@ -5,7 +5,7 @@
 ## Install
 
 ```
-npm i imarc/npm vite-svg-sprite-wrapper -D
+npm i imarc/vite-svg-sprite-wrapper -D
 ```
 
 ## Usage
